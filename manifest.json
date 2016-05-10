@@ -12,6 +12,7 @@
     //     "default_popup": "popup.html"
     // },
     // define ALL permissions (can be pruned later)
+    // https://developer.chrome.com/extensions/declare_permissions#manifest
     "permissions": [
         "activeTab",
         "alarms",
