@@ -9,7 +9,13 @@ sessionId = Date.now();
 TOPIC_NAME = "chromozol";
 
 function log(x) {
-    console.log(timeStamp() + ": " + x);
+    if (typeof(x) === "string") {
+        console.log(timeStamp() + ": " + x);
+    }
+    else {
+        console.log(timeStamp() + ": ");
+        console.log(x);
+    }
 }
 
 // stolen from https://gist.github.com/hurjas/2660489
