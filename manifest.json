@@ -3,7 +3,7 @@
 
     "name": "Chromozol",
     "description": "Remove control API for Chromium",
-    "version": "0.1.0",
+    "version": "0.1.1",
 
     "background": { "scripts": ["background.js"] },
 
@@ -14,9 +14,9 @@
     // define ALL permissions (can be pruned later)
     // https://developer.chrome.com/extensions/declare_permissions#manifest
     "permissions": [
+        "http://localhost:8182/", // for Kafka-REST proxy
         "activeTab",
         "alarms",
-        "audioModem",
         "background",
         "bookmarks",
         "browsingData",
@@ -25,7 +25,6 @@
         "contentSettings",
         "contextMenus",
         "cookies",
-        "copresence",
         "debugger",
         "declarativeContent",
         "declarativeWebRequest",
@@ -34,7 +33,7 @@
         //"documentScan",
         "downloads",
         //"enterprise.platformKeys",
-        "experimental",
+        //"experimental", // TODO : is this useful for anything?
         //"fileBrowserHandler",
         //"fileSystemProvider",
         "fontSettings",
@@ -44,7 +43,6 @@
         "identity",
         "idle",
         "idltest",
-        "location",
         "management",
         "nativeMessaging",
         //"networking.config",

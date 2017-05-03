@@ -1,12 +1,16 @@
-// WebSocket API: https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
-
 // session ID of this browser or plugin "execution". Used to generate
 // unique IDs across time. Should the plugin be restarted during
 // development the "openerTabId" reference may not be valid.
 sessionId = Date.now();
 
-// Kafka topic name to broadcast to
-TOPIC_NAME = "chromozol";
+// name of Kafka which to broadcast events
+EVENT_TOPIC = "chromozol-event";
+
+// name of Kafka topic which to listen for control messages
+CONTROL_TOPIC = "chromozol-control";
+
+// Should messages be traced to the console?
+TRACE_MESSAGES = true;
 
 function log(x) {
     if (typeof(x) === "string") {
@@ -39,53 +43,111 @@ function isInspectableUrl(url) {
 		url.indexOf("file") == 0;
 }
 
-function wsOnMessage(evt) {
-	var msg = evt.data;
-    log("GOT a message: " + msg);
-}
-
-log("DOING THE WEB SOCKET");
-
-// testing with `websocketd'
-//ws = new WebSocket("ws://localhost:8080");
-
-// https://github.com/b/kafka-websocket
-ws = new WebSocket("ws://localhost:7080/v2/broker/?topics=chromozol");
-ws.onmessage = wsOnMessage
+ws = new WebSocket("ws://localhost:7080/v2/broker/?topics=" + CONTROL_TOPIC);
 
 ws.onopen = function () {
-    ws.send('{ "topic" : "chromozol", "message" : "hi from chromium" }');
+    //ws.send('{ "topic" : "chromozol", "message" : "hi from chromium" }');
 };
 ws.onclose = function () {
     log("WebSocket got closed");
 };
 
-chrome.tabs.onUpdated.addListener(function (tabId, changeInfo, tab) {
-    if (changeInfo.status == "complete" && isInspectableUrl(tab.url)) {
-        // log("Tab UPD (" + tabId + ") --------------------------");
-        // log("Tab UPD (" + tabId + ") TITLE: " + tab.title);
-        // log("Tab UPD (" + tabId + ") URL: " + tab.url);
-        // log("Tab UPD (" + tabId + ") FAVICO: " + tab.favIconUrl);
+var controlHandlers = {};
+controlHandlers.tabActivate = function(msg) {
+    // TODO : better reporting of bad session ID
+    var session = msg.tabId.split(".")[0];
+    var tabId = msg.tabId.split(".")[1];
+    chrome.tabs.update(parseInt(tabId), {"active":true});
+}
 
-        var tabdata = {};
-        tabdata.viewtime = Date.now()
-        tabdata.id = sessionId + "." + tab.id;
-        tabdata.title = tab.title;
-        tabdata.url = tab.url;
-        tabdata.favIconUrl = tab.favIconUrl;
-        if (tab.openerTabId) {
-            tabdata.openerTabId = sessionId + "." + tab.openerTabId;
-        }
-        //log(JSON.stringify(tabdata));
-
-        // for development
-        lastTab = tab;
-
-        var broadcast = {}
-        broadcast.topic = TOPIC_NAME;
-        broadcast.message = JSON.stringify(tabdata);
-        //broadcast.message = tabdata;
-        ws.send(JSON.stringify(broadcast));
-        log("Broadcast: " + JSON.stringify(broadcast));
+/**
+ * Dispatcher for control messages.
+ */
+ws.onmessage = function wsOnMessage(evt) {
+    if (TRACE_MESSAGES) {
+        log("GOT a message: ");
+        log(JSON.parse(evt.data));
     }
+    // evt.data is the message from the websocket which still has the topic name attached
+	log(evt.data.message);
+	var msg = JSON.parse(JSON.parse(evt.data).message);
+    var cmdName = msg.command;
+    var handler = controlHandlers[cmdName];
+    if (handler) {
+        handler(msg);
+    }
+    else {
+        log("ERROR: no dispatcher for command");
+        log(msg);
+    }
+}
+
+/**
+ * Encode the tab ID to be globally unique.
+ */
+function getGlobalTabId(tabId) {
+    return sessionId + "." + tabId;
+}
+
+/**
+ * Broadcast a message to the Kafka queue
+ */
+function sendChromozolMessage(msg) {
+    var broadcast = {}
+    broadcast.topic = EVENT_TOPIC;
+    // we have to stringify() this for kafka-websocket's TextDecoder
+    broadcast.message = JSON.stringify(msg);
+    ws.send(JSON.stringify(broadcast));
+    if (TRACE_MESSAGES) {
+        log("Broadcast: ");
+        log(broadcast);
+    }
+}
+
+/**
+ * TAB UPDATE handler
+ * 
+ * We broadcast a new `tab-updated' message.
+ */
+chrome.tabs.onUpdated.addListener(function (tabId, changeInfo, tab) {
+    if (changeInfo.status != "complete" || !isInspectableUrl(tab.url)) {
+        return;
+    }
+
+    var tabdata = {};
+    tabdata.viewtime = Date.now()
+    tabdata.id = getGlobalTabId(tab.id);
+    tabdata.title = tab.title;
+    tabdata.url = tab.url;
+    tabdata.favIconUrl = tab.favIconUrl;
+    if (tab.openerTabId) {
+        tabdata.openerTabId = getGlobalTabId(tab.openerTabId);
+    }
+
+    // for development/debugging. save the last tab if we need to inspect it against the event
+    lastTab = tab;
+
+    sendChromozolMessage({"event":"tab-updated", "tabdata":tabdata});
+});
+
+/**
+ * TAB CLOSED handler
+ *
+ * We broadcast a new `tab-closed' message.
+ */
+chrome.tabs.onRemoved.addListener(function (tabId, removeInfo) {
+    var tabdata = {};
+    tabdata.id = getGlobalTabId(tabId);
+    sendChromozolMessage({"event":"tab-closed", "tabdata":tabdata});
+});
+
+/**
+ * TAB ACTIVATED handler
+ *
+ * We broadcast a new `tab-activated' message.
+ */
+chrome.tabs.onActivated.addListener(function (activeInfo) {
+    var tabdata = {};
+    tabdata.id = getGlobalTabId(activeInfo.tabId);
+    sendChromozolMessage({"event":"tab-activated", "tabdata":tabdata});
 });
