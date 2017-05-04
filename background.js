@@ -10,7 +10,7 @@ EVENT_TOPIC = "chromozol-event";
 CONTROL_TOPIC = "chromozol-control";
 
 // Should messages be traced to the console?
-TRACE_MESSAGES = true;
+TRACE_MESSAGES = false;
 
 function log(x) {
     if (typeof(x) === "string") {
@@ -43,14 +43,27 @@ function isInspectableUrl(url) {
 		url.indexOf("file") == 0;
 }
 
-ws = new WebSocket("ws://localhost:7080/v2/broker/?topics=" + CONTROL_TOPIC);
+WS = createWebSocket()
 
-ws.onopen = function () {
-    //ws.send('{ "topic" : "chromozol", "message" : "hi from chromium" }');
-};
-ws.onclose = function () {
-    log("WebSocket got closed");
-};
+function createWebSocket() {
+    var ws = new WebSocket("ws://localhost:7080/v2/broker/?topics=" + CONTROL_TOPIC);
+
+    ws.onopen = function () {
+        log("Web socket opened");
+        //ws.send('{ "topic" : "chromozol", "message" : "hi from chromium" }');
+    };
+    ws.onerror = function (err) {
+        log("Web socket error")
+        log(err)
+    }
+    ws.onclose = function () {
+        log("Web socket got closed");
+        WS = createWebSocket();
+    };
+    ws.onmessage = dispatchControlMessage
+
+    return ws
+}
 
 var controlHandlers = {};
 controlHandlers.tabActivate = function(msg) {
@@ -62,8 +75,10 @@ controlHandlers.tabActivate = function(msg) {
 
 /**
  * Dispatcher for control messages.
+ *
+ * @param evt the web socket `onmessage' event
  */
-ws.onmessage = function wsOnMessage(evt) {
+function dispatchControlMessage(evt) {
     if (TRACE_MESSAGES) {
         log("GOT a message: ");
         log(JSON.parse(evt.data));
@@ -97,7 +112,7 @@ function sendChromozolMessage(msg) {
     broadcast.topic = EVENT_TOPIC;
     // we have to stringify() this for kafka-websocket's TextDecoder
     broadcast.message = JSON.stringify(msg);
-    ws.send(JSON.stringify(broadcast));
+    WS.send(JSON.stringify(broadcast));
     if (TRACE_MESSAGES) {
         log("Broadcast: ");
         log(broadcast);
