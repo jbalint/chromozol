@@ -12,6 +12,10 @@ CONTROL_TOPIC = "chromozol-control";
 // Should messages be traced to the console?
 TRACE_MESSAGES = false;
 
+connectFailures = 0;
+
+startupMessageSent = false;
+
 function log(x) {
     if (typeof(x) === "string") {
         console.log(timeStamp() + ": " + x);
@@ -43,6 +47,20 @@ function isInspectableUrl(url) {
 		url.indexOf("file") == 0;
 }
 
+/**
+ * Transform a Chrome `tab' object into a `tabInfo' used in events.
+ */
+function tabToTabData(t) {
+    var tabData =  {url: t.url,
+                    title: t.title,
+                    favIconUrl: t.favIconUrl,
+                    id: getGlobalTabId(t.id) };
+    if (t.openerTabId) {
+        tabData.openerTabId = getGlobalTabId(t.openerTabId);
+    }
+    return tabData;
+}
+
 WS = createWebSocket()
 
 function createWebSocket() {
@@ -50,15 +68,31 @@ function createWebSocket() {
 
     ws.onopen = function () {
         log("Web socket opened");
-        //ws.send('{ "topic" : "chromozol", "message" : "hi from chromium" }');
+        connectFailures = 0;
+        if (!startupMessageSent) {
+            // TODO : send startup message, including ALL tab contents
+            chrome.tabs.query({},
+                              function (tabs) {
+                                  var noMetaTabs = function (t) { return isInspectableUrl(t.url); };
+                                  sendChromozolMessage({"event":"session-start",
+                                                        "tabinfo":tabs.map(tabToTabData).filter(noMetaTabs)});
+                              });
+            startupMessageSent = true;
+        }
     };
     ws.onerror = function (err) {
-        log("Web socket error")
-        log(err)
+        log("Web socket error");
+        log(err);
     }
-    ws.onclose = function () {
-        log("Web socket got closed");
-        WS = createWebSocket();
+    ws.onclose = function (err) {
+        if (err.reason === "Idle timeout") {
+            // reconnect
+            WS = createWebSocket();
+        }
+        else {
+            log("Web socket got closed");
+            log(err);
+        }
     };
     ws.onmessage = dispatchControlMessage
 
@@ -80,7 +114,7 @@ controlHandlers.tabActivate = function(msg) {
  */
 function dispatchControlMessage(evt) {
     if (TRACE_MESSAGES) {
-        log("GOT a message: ");
+        log("Incoming control: ");
         log(JSON.parse(evt.data));
     }
     // evt.data is the message from the websocket which still has the topic name attached
@@ -111,10 +145,11 @@ function sendChromozolMessage(msg) {
     var broadcast = {}
     broadcast.topic = EVENT_TOPIC;
     // we have to stringify() this for kafka-websocket's TextDecoder
+    msg.time = Date.now()
     broadcast.message = JSON.stringify(msg);
     WS.send(JSON.stringify(broadcast));
     if (TRACE_MESSAGES) {
-        log("Broadcast: ");
+        log("Broadcast event: ");
         log(broadcast);
     }
 }
@@ -129,20 +164,10 @@ chrome.tabs.onUpdated.addListener(function (tabId, changeInfo, tab) {
         return;
     }
 
-    var tabdata = {};
-    tabdata.viewtime = Date.now()
-    tabdata.id = getGlobalTabId(tab.id);
-    tabdata.title = tab.title;
-    tabdata.url = tab.url;
-    tabdata.favIconUrl = tab.favIconUrl;
-    if (tab.openerTabId) {
-        tabdata.openerTabId = getGlobalTabId(tab.openerTabId);
-    }
-
     // for development/debugging. save the last tab if we need to inspect it against the event
     lastTab = tab;
 
-    sendChromozolMessage({"event":"tab-updated", "tabdata":tabdata});
+    sendChromozolMessage({"event":"tab-updated", "tabdata":tabToTabData(tab)});
 });
 
 /**
@@ -151,9 +176,7 @@ chrome.tabs.onUpdated.addListener(function (tabId, changeInfo, tab) {
  * We broadcast a new `tab-closed' message.
  */
 chrome.tabs.onRemoved.addListener(function (tabId, removeInfo) {
-    var tabdata = {};
-    tabdata.id = getGlobalTabId(tabId);
-    sendChromozolMessage({"event":"tab-closed", "tabdata":tabdata});
+    sendChromozolMessage({"event":"tab-closed", "tabId":{id: getGlobalTabId(removeInfo.tabId)}});
 });
 
 /**
@@ -162,7 +185,5 @@ chrome.tabs.onRemoved.addListener(function (tabId, removeInfo) {
  * We broadcast a new `tab-activated' message.
  */
 chrome.tabs.onActivated.addListener(function (activeInfo) {
-    var tabdata = {};
-    tabdata.id = getGlobalTabId(activeInfo.tabId);
-    sendChromozolMessage({"event":"tab-activated", "tabdata":tabdata});
+    sendChromozolMessage({"event":"tab-activated", "tabId":{id: getGlobalTabId(activeInfo.tabId)}});
 });
