@@ -9,8 +9,11 @@
         "scripts":
         ["lib/global.js",
          "lib/control.js",
-         "lib/tab_events.js",
+         // broadcast implementations
          "lib/kafka.js",
+         "lib/sparql_insert.js",
+         // depends on the broadcast implementation
+         "lib/tab_events.js",
          "background.js"] },
 
     // "browser_action": {
