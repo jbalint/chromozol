@@ -1,0 +1,13 @@
+[Unit]
+Description=Chromozol Control Bus
+After=network.target
+
+[Service]
+Type=simple
+User=jbalint
+WorkingDirectory=/home/jbalint
+ExecStart=/home/jbalint/sw/chromozol/chromozol-control.sh
+Restart=on-abort
+
+[Install]
+WantedBy=multi-user.target
