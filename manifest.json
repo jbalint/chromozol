@@ -55,7 +55,6 @@
         "management",
         "nativeMessaging",
         //"networking.config",
-        "notificationProvider",
         "notifications",
         "pageCapture",
         //"platformKeys",
