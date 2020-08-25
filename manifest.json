@@ -2,7 +2,7 @@
     "manifest_version": 2,
 
     "name": "Chromozol",
-    "description": "Remove control API for Chromium",
+    "description": "Remote control API for Chromium",
     "version": "0.1.1",
 
     "background": {
