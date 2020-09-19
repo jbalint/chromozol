@@ -1,0 +1,153 @@
+@prefix : <http://github.com/jbalint/chromozol#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix xml: <http://www.w3.org/XML/1998/namespace> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix cmzl: <http://github.com/jbalint/chromozol#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@base <http://github.com/jbalint/chromozol> .
+
+<http://github.com/jbalint/chromozol> rdf:type owl:Ontology ;
+                                       rdfs:comment """Data model for the Chromozol system:
+
+https://github.com/jbalint/chromozol""" .
+
+#################################################################
+#    Object Properties
+#################################################################
+
+###  http://github.com/jbalint/chromozol#content
+cmzl:content rdf:type owl:ObjectProperty ;
+             rdfs:domain cmzl:TabUpdatedEvent ;
+             rdfs:range cmzl:TabContent ;
+             rdfs:comment "The content (web page) displayed by a tab." .
+
+
+###  http://github.com/jbalint/chromozol#hasSubEvent
+cmzl:hasSubEvent rdf:type owl:ObjectProperty ;
+                 rdfs:domain cmzl:SessionStartEvent ;
+                 rdfs:comment "An event may contain other events which happen as part of it. This property indicates the relationship between a parent event and child events which happen as part of it." .
+
+
+###  http://github.com/jbalint/chromozol#hasTab
+cmzl:hasTab rdf:type owl:ObjectProperty ;
+            rdfs:domain cmzl:Session ;
+            rdfs:range cmzl:Tab ;
+            rdfs:comment "A session is composed of tabs. This property links tabs to their session." .
+
+
+###  http://github.com/jbalint/chromozol#openedBy
+cmzl:openedBy rdf:type owl:ObjectProperty ;
+              rdfs:domain cmzl:Tab ;
+              rdfs:range cmzl:Tab ;
+              rdfs:comment """A tab is \"opened by\" another tab when using \"open link in new tab\" (or control+click or middle click).
+
+// TODO: verify the meaning and document structure of this property""" .
+
+
+###  http://github.com/jbalint/chromozol#tab
+cmzl:tab rdf:type owl:ObjectProperty ;
+         rdfs:domain cmzl:TabEvent ;
+         rdfs:range cmzl:Tab ;
+         rdfs:comment "The tab on which a TabEvent occurred." .
+
+
+#################################################################
+#    Data properties
+#################################################################
+
+###  http://github.com/jbalint/chromozol#favIconUrl
+cmzl:favIconUrl rdf:type owl:DatatypeProperty ;
+                rdfs:domain cmzl:TabContent ;
+                rdfs:range xsd:anyURI ;
+                rdfs:comment "The \"favicon\" URL of a tab content." .
+
+
+###  http://github.com/jbalint/chromozol#hostname
+cmzl:hostname rdf:type owl:DatatypeProperty ;
+              rdfs:domain cmzl:Session ;
+              rdfs:range xsd:string ;
+              rdfs:comment "The name of the host on which the session runs." .
+
+
+###  http://github.com/jbalint/chromozol#sessionId
+cmzl:sessionId rdf:type owl:DatatypeProperty ;
+               rdfs:domain cmzl:Session ;
+               rdfs:comment "A unique identifier of a `Session`." .
+
+
+###  http://github.com/jbalint/chromozol#time
+cmzl:time rdf:type owl:DatatypeProperty ;
+          rdfs:domain cmzl:Event ;
+          rdfs:comment "The time at which the event occurred. Represented as \"the number of milliseconds elapsed since January 1, 1970 00:00:00 UTC\" (via Javascript's `Date.now()`, cf https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Date/now)." .
+
+
+###  http://github.com/jbalint/chromozol#title
+cmzl:title rdf:type owl:DatatypeProperty ;
+           rdfs:domain cmzl:TabContent ;
+           rdfs:range xsd:string ;
+           rdfs:comment "The title of a `TabContent`." .
+
+
+###  http://github.com/jbalint/chromozol#url
+cmzl:url rdf:type owl:DatatypeProperty ;
+         rdfs:domain cmzl:TabContent ;
+         rdfs:range xsd:anyURI ;
+         rdfs:comment "The URL of a `TabContent`." .
+
+
+#################################################################
+#    Classes
+#################################################################
+
+###  http://github.com/jbalint/chromozol#Event
+cmzl:Event rdf:type owl:Class ;
+           rdfs:comment "A description of a generic event which is described as happening at an instant in time." .
+
+
+###  http://github.com/jbalint/chromozol#Session
+cmzl:Session rdf:type owl:Class ;
+             rdfs:comment "A session is an interval which one or more tabs were open and possibly displaying some content. A session typically runs from the launch of a browser instance to it's termination but may end when the event logging agent is restarted at which point a new session begins." .
+
+
+###  http://github.com/jbalint/chromozol#SessionStartEvent
+cmzl:SessionStartEvent rdf:type owl:Class ;
+                       rdfs:subClassOf cmzl:Event ;
+                       rdfs:comment "The starting of a session." .
+
+
+###  http://github.com/jbalint/chromozol#Tab
+cmzl:Tab rdf:type owl:Class ;
+         rdfs:comment "A tab is an element of a session which displays a single content (web page) at an instant. The displayed content may change over time." .
+
+
+###  http://github.com/jbalint/chromozol#TabActivatedEvent
+cmzl:TabActivatedEvent rdf:type owl:Class ;
+                       rdfs:subClassOf cmzl:TabEvent ;
+                       rdfs:comment "An event indicating that a tab was activitated (selected). When \"switching tabs\", a `TabActivatedEvent` will be sent. This is also sent when switching between windows." .
+
+
+###  http://github.com/jbalint/chromozol#TabClosedEvent
+cmzl:TabClosedEvent rdf:type owl:Class ;
+                    rdfs:subClassOf cmzl:TabEvent ;
+                    rdfs:comment "The closing of a tab." .
+
+
+###  http://github.com/jbalint/chromozol#TabContent
+cmzl:TabContent rdf:type owl:Class ;
+                rdfs:comment "The content which is displayed in a tab." .
+
+
+###  http://github.com/jbalint/chromozol#TabEvent
+cmzl:TabEvent rdf:type owl:Class ;
+              rdfs:subClassOf cmzl:Event ;
+              rdfs:comment "An event for a tab." .
+
+
+###  http://github.com/jbalint/chromozol#TabUpdatedEvent
+cmzl:TabUpdatedEvent rdf:type owl:Class ;
+                     rdfs:subClassOf cmzl:TabEvent ;
+                     rdfs:comment "An update event on a tab which indicates the display of some content in the tab." .
+
+
+###  Generated by the OWL API (version 4.5.9.2019-02-01T07:24:44Z) https://github.com/owlcs/owlapi
