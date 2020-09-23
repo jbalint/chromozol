@@ -1,0 +1,29 @@
+# Get the last activated tab including it's title and URL
+
+# Round trip from Emacs SPARQL Mode runs in about 15-20ms when "warm"
+# (benchmark-elapse (sparql-query-region t))
+
+# This is written without using a SPARQL "dataset" so that can be easily modified
+select *
+{
+  {
+    select ?lastActivatedTab (max(?updatedTime) as ?maxUpdatedTime) {
+      # get the max activated event. we might have more than one LastActivatedTab so we must find the most recent event.
+      # more than one because we have too weak consistency guarantees with LCW and easily encounter a write skew
+      { select (max(?time) as ?maxTime) { graph cmzl: { ?event a cmzl:TabActivatedEvent ; cmzl:tab [ a cmzl:LastActivatedTab ] ; cmzl:time ?time } } }
+      graph cmzl: {
+        # using the time of the last event, get the single last activated tab
+        ?event a cmzl:TabActivatedEvent ; cmzl:tab ?lastActivatedTab ; cmzl:time ?maxTime .
+        # Using that, get it's latest updated event (at least that event's time as ?maxUpdatedTime)
+        ?updatedEvent a cmzl:TabUpdatedEvent ; cmzl:time ?updatedTime ; cmzl:tab ?lastActivatedTab
+      }
+    } group by ?lastActivatedTab
+  }
+
+  graph cmzl: {
+    # using ?maxUpdatedTime, get the max updated event on ?lastActivatedTab
+    ?updatedEvent a cmzl:TabUpdatedEvent ; cmzl:time ?maxUpdatedTime ; cmzl:tab ?lastActivatedTab .
+    # And it's content
+    ?updatedEvent cmzl:content [ cmzl:title ?title ; cmzl:url ?url ]
+  }
+}
